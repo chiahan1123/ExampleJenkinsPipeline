@@ -1,0 +1,28 @@
+pipeline {
+  agent {
+    docker {
+      image 'chiahan1123/docker-jenkins-golang'
+    }
+  }
+
+  stages {
+    stage('Test Mobile and Archive Coverage Report') {
+      steps {
+        withEnv(["GOPATH=$WORKSPACE/mobile"]) {
+          sh 'gocov test -v $(go list ./mobile/... | grep -v vendor) | gocov-html > ./mobile/coverage.html'
+        }
+      }
+      post {
+        success {
+          archiveArtifacts 'mobile/coverage.html'
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      cleanWs()
+    }
+  }
+}

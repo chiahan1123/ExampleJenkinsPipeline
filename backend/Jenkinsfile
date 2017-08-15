@@ -1,0 +1,28 @@
+pipeline {
+  agent {
+    docker {
+      image 'chiahan1123/docker-jenkins-golang'
+    }
+  }
+
+  stages {
+    stage('Test Backend and Archive Coverage Report') {
+      steps {
+        withEnv(["GOPATH=$WORKSPACE/backend"]) {
+          sh 'gocov test -v $(go list ./backend/... | grep -v vendor) | gocov-html > ./backend/coverage.html'
+        }
+      }
+      post {
+        success {
+          archiveArtifacts 'backend/coverage.html'
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      cleanWs()
+    }
+  }
+}

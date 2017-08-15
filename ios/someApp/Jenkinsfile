@@ -1,0 +1,19 @@
+pipeline {
+  // TODO: create a docker label for a mac machine to support iOS build
+  agent any
+
+  stages {
+    stage('Build iOS') {
+      steps {
+        // TODO: build iOS
+        echo 'Building iOS...'
+      }
+    }
+  }
+
+  post {
+    always {
+      cleanWs()
+    }
+  }
+}

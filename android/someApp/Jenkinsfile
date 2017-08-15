@@ -1,0 +1,19 @@
+pipeline {
+  // TODO: create docker image to support android build
+  agent any
+
+  stages {
+    stage('Build Android') {
+      steps {
+        // TODO: build android
+        echo 'Building Android...'
+      }
+    }
+  }
+
+  post {
+    always {
+      cleanWs()
+    }
+  }
+}
