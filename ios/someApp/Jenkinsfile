@@ -1,12 +1,12 @@
 pipeline {
-  // TODO: create a docker label for a mac machine to support iOS build
-  agent any
+  agent {
+    label 'ios-slave'
+  }
 
   stages {
     stage('Build iOS') {
       steps {
-        // TODO: build iOS
-        echo 'Building iOS...'
+        sh "xcodebuild -workspace ./ios/someApp/someApp.xcworkspace -scheme JenkinsCI -destination 'platform=iOS Simulator,name=iPhone 7,OS=10.3' build test"
       }
     }
   }
