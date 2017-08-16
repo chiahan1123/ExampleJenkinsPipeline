@@ -1,12 +1,19 @@
 pipeline {
-  // TODO: create docker image to support android build
-  agent any
+  agent {
+    docker {
+      image 'chiahan1123/docker-jenkins-android'
+    }
+  }
 
   stages {
-    stage('Build Android') {
+    stage('Build Android and Archive Jacoco Report') {
       steps {
-        // TODO: build android
-        echo 'Building Android...'
+        sh "gradle --stacktrace --info --refresh-dependencies -p $WORKSPACE/android/someApp clean build jacocoTestReport"
+      }
+      post {
+        success {
+          archiveArtifacts '**/android/someApp/app/build/**/jacocoTestReport/html/**/*'
+        }
       }
     }
   }
