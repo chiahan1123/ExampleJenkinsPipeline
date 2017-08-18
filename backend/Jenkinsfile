@@ -7,53 +7,88 @@ pipeline {
 
   stages {
     stage('Test Backend') {
-      environment {
-        GOPATH = "$WORKSPACE/backend"
-      }
       steps {
-        sh 'gocov test -v $(go list ./backend/... | grep -v vendor) > ./backend/coverage.json'
-      }
-    }
-    stage('Archive Coverage Report') {
-      when {
-        expression {
-          GIT_BRANCH = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
-          return GIT_BRANCH != 'master'
-        }
-      }
-      steps {
-        sh 'gocov-html ./backend/coverage.json > ./backend/coverage.html'
-      }
-      post {
-        success {
-          archiveArtifacts 'backend/coverage.html'
+        withEnv(["GOPATH=$WORKSPACE/backend"]) {
+          sh 'gocov test -v $(go list ./backend/... | grep -v vendor) > ./backend/coverage.json'
         }
       }
     }
-    stage('Publish Cobertura Report') {
-      when {
-        expression {
-          GIT_BRANCH = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
-          return GIT_BRANCH == 'master'
-        }
-      }
+    // stage('Archive Coverage Report') {
+    //   when {
+    //     expression {
+    //       GIT_BRANCH = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
+    //       return GIT_BRANCH != 'master'
+    //     }
+    //   }
+    //   steps {
+    //     sh 'gocov-html ./backend/coverage.json > ./backend/coverage.html'
+    //   }
+    //   post {
+    //     success {
+    //       archiveArtifacts 'backend/coverage.html'
+    //     }
+    //   }
+    // }
+    // stage('Publish Cobertura Report') {
+    //   when {
+    //     expression {
+    //       GIT_BRANCH = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
+    //       return GIT_BRANCH == 'master'
+    //     }
+    //   }
+    //   steps {
+    //     sh 'cat ./backend/coverage.json | gocov-xml > ./backend/cobertura.xml'
+    //   }
+    //   post {
+    //     success {
+    //       step([
+    //         $class: 'CoberturaPublisher',
+    //         autoUpdateHealth: false,
+    //         autoUpdateStability: false,
+    //         coberturaReportFile: 'backend/cobertura.xml',
+    //         failUnhealthy: false,
+    //         failUnstable: false,
+    //         maxNumberOfBuilds: 0,
+    //         onlyStable: false,
+    //         sourceEncoding: 'ASCII',
+    //         zoomCoverageChart: false
+    //       ])
+    //     }
+    //   }
+    // }
+    //
+    // This stage replaces the stages above (Archive Coverage Report, Publish Cobertura Report) by
+    // using if-else in a script instead of the when-directive since there is an issue with
+    // loading a declarative pipeline, which causes the when-directive to always evaluate to
+    // true (https://issues.jenkins-ci.org/browse/JENKINS-42224).
+    // Note: This declarative pipeline works as expected when triggered by its master pipeline job.
+    stage('Coverage Report') {
       steps {
-        sh 'cat ./backend/coverage.json | gocov-xml > ./backend/cobertura.xml'
-      }
-      post {
-        success {
-          step([
-            $class: 'CoberturaPublisher',
-            autoUpdateHealth: false,
-            autoUpdateStability: false,
-            coberturaReportFile: 'backend/cobertura.xml',
-            failUnhealthy: false,
-            failUnstable: false,
-            maxNumberOfBuilds: 0,
-            onlyStable: false,
-            sourceEncoding: 'ASCII',
-            zoomCoverageChart: false
-          ])
+        script {
+          def branch = sh(
+            returnStdout: true,
+            script: 'git rev-parse --abbrev-ref HEAD'
+          ).trim()
+          if (branch != 'master') {
+            echo 'Archiving Coverage Report...'
+            sh 'gocov-html ./backend/coverage.json > ./backend/coverage.html'
+            archiveArtifacts 'backend/coverage.html'
+          } else {
+            echo 'Publishing Cobertura Report...'
+            sh 'cat ./backend/coverage.json | gocov-xml > ./backend/cobertura.xml'
+            step([
+              $class: 'CoberturaPublisher',
+              autoUpdateHealth: false,
+              autoUpdateStability: false,
+              coberturaReportFile: 'backend/cobertura.xml',
+              failUnhealthy: false,
+              failUnstable: false,
+              maxNumberOfBuilds: 0,
+              onlyStable: false,
+              sourceEncoding: 'ASCII',
+              zoomCoverageChart: false
+            ])
+          }
         }
       }
     }
