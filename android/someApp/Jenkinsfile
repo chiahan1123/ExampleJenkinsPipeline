@@ -6,13 +6,45 @@ pipeline {
   }
 
   stages {
-    stage('Build Android and Archive Jacoco Report') {
+    stage('Build Android') {
       steps {
-        sh "gradle --stacktrace --info --refresh-dependencies -p $WORKSPACE/android/someApp clean build jacocoTestReport"
+        sh "gradle --stacktrace --info --refresh-dependencies -p $WORKSPACE/android/someApp clean build"
+      }
+    }
+    stage('Archive Jacoco Report') {
+      when {
+        expression {
+          GIT_BRANCH = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
+          return GIT_BRANCH != 'master'
+        }
+      }
+      steps {
+        sh "gradle jacocoTestReport"
       }
       post {
         success {
           archiveArtifacts '**/android/someApp/app/build/**/jacocoTestReport/html/**/*'
+        }
+      }
+    }
+    stage('Publish Jacoco Report') {
+      when {
+        expression {
+          GIT_BRANCH = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
+          return GIT_BRANCH == 'master'
+        }
+      }
+      steps {
+        echo ''
+      }
+      post {
+        success {
+          jacoco([
+            classPattern: '**/android/someApp/app/build/intermediates/classes/release',
+            exclusionPattern: '**/R.class,**/R$*.class,**/BuildConfig.class,**/com/example/someapp/MainActivity.class',
+            execPattern: '**/android/someApp/app/build/jacoco/testReleaseUnitTest.exec',
+            sourcePattern: '**/android/someApp/**/src/main/java'
+          ])
         }
       }
     }

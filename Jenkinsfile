@@ -3,12 +3,13 @@
 // job to execute, which allows for independent statistical data for each
 // sub-project (eg. Test coverage trend report).
 def subProjectConfigs = [
-  'android/someApp/': 'android-someApp-master',
-  'ios/someApp/': 'ios-someApp-master',
-  'mobile/': 'mobile-master',
-  'backend/': 'backend-master'
+  'android/someApp/': 'master-android-someApp',
+  'ios/someApp/': 'master-ios-someApp',
+  'mobile/': 'master-mobile',
+  'backend/': 'master-backend'
 ]
 
+def masterBuilders = [:]
 def pipelineBuilders = [:]
 
 node {
@@ -33,6 +34,9 @@ node {
           || env.BRANCH_NAME == 'production') {
           // TODO: Dispatch to jobs accordingly
           echo "Dispatching to $value"
+          masterBuilders[key] = {
+            build value
+          }
         } else {
           def jenkinsfile = readFile "./${key}Jenkinsfile"
           // Add Jenkinsfile to pipeline builders
@@ -46,6 +50,12 @@ node {
 
   // Clean workspace at the end to make sure a fresh repository checkout
   cleanWs()
+}
+
+if (masterBuilders) {
+  echo 'Executing master builders in parallel...'
+  parallel masterBuilders
+  echo '!!!DONE!!!'
 }
 
 if (pipelineBuilders) {

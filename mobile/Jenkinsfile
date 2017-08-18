@@ -6,15 +6,54 @@ pipeline {
   }
 
   stages {
-    stage('Test Mobile and Archive Coverage Report') {
+    stage('Test Mobile') {
+      environment {
+        GOPATH = "$WORKSPACE/mobile"
+      }
       steps {
-        withEnv(["GOPATH=$WORKSPACE/mobile"]) {
-          sh 'gocov test -v $(go list ./mobile/... | grep -v vendor) | gocov-html > ./mobile/coverage.html'
+        sh 'gocov test -v $(go list ./mobile/... | grep -v vendor) > ./mobile/coverage.json'
+      }
+    }
+    stage('Archive Coverage Report') {
+      when {
+        expression {
+          GIT_BRANCH = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
+          return GIT_BRANCH != 'master'
         }
+      }
+      steps {
+        sh 'gocov-html ./mobile/coverage.json > ./mobile/coverage.html'
       }
       post {
         success {
           archiveArtifacts 'mobile/coverage.html'
+        }
+      }
+    }
+    stage('Publish Cobertura Report') {
+      when {
+        expression {
+          GIT_BRANCH = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
+          return GIT_BRANCH == 'master'
+        }
+      }
+      steps {
+        sh 'cat ./mobile/coverage.json | gocov-xml > ./mobile/cobertura.xml'
+      }
+      post {
+        success {
+          step([
+            $class: 'CoberturaPublisher',
+            autoUpdateHealth: false,
+            autoUpdateStability: false,
+            coberturaReportFile: 'mobile/cobertura.xml',
+            failUnhealthy: false,
+            failUnstable: false,
+            maxNumberOfBuilds: 0,
+            onlyStable: false,
+            sourceEncoding: 'ASCII',
+            zoomCoverageChart: false
+          ])
         }
       }
     }
