@@ -11,40 +11,66 @@ pipeline {
         sh "gradle --stacktrace --info --refresh-dependencies -p $WORKSPACE/android/someApp clean build"
       }
     }
-    stage('Archive Jacoco Report') {
-      when {
-        expression {
-          GIT_BRANCH = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
-          return GIT_BRANCH != 'master'
-        }
-      }
+    // stage('Archive Jacoco Report') {
+    //   when {
+    //     expression {
+    //       GIT_BRANCH = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
+    //       return GIT_BRANCH != 'master'
+    //     }
+    //   }
+    //   steps {
+    //     sh "gradle -p $WORKSPACE/android/someApp jacocoTestReport"
+    //   }
+    //   post {
+    //     success {
+    //       archiveArtifacts '**/android/someApp/app/build/**/jacocoTestReport/html/**/*'
+    //     }
+    //   }
+    // }
+    // stage('Publish Jacoco Report') {
+    //   when {
+    //     expression {
+    //       GIT_BRANCH = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
+    //       return GIT_BRANCH == 'master'
+    //     }
+    //   }
+    //   steps {
+    //     echo ''
+    //   }
+    //   post {
+    //     success {
+    //       jacoco([
+    //         classPattern: '**/android/someApp/app/build/intermediates/classes/release',
+    //         exclusionPattern: '**/R.class,**/R$*.class,**/BuildConfig.class,**/com/example/someapp/MainActivity.class',
+    //         execPattern: '**/android/someApp/app/build/jacoco/testReleaseUnitTest.exec',
+    //         sourcePattern: '**/android/someApp/**/src/main/java'
+    //       ])
+    //     }
+    //   }
+    // }
+    //
+    // This stage replaces the stages above (Archive Jacoco Report, Publish Jacoco Report) by
+    // using if-else in a script instead of the when-directive since there is an issue with
+    // loading a declarative pipeline, which causes the when-directive to always evaluate to
+    // true (https://issues.jenkins-ci.org/browse/JENKINS-42224).
+    // Note: This declarative pipeline works as expected when triggered by its master pipeline job.
+    stage('Jacoco Report') {
       steps {
-        sh "gradle jacocoTestReport"
-      }
-      post {
-        success {
-          archiveArtifacts '**/android/someApp/app/build/**/jacocoTestReport/html/**/*'
-        }
-      }
-    }
-    stage('Publish Jacoco Report') {
-      when {
-        expression {
-          GIT_BRANCH = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
-          return GIT_BRANCH == 'master'
-        }
-      }
-      steps {
-        echo ''
-      }
-      post {
-        success {
-          jacoco([
-            classPattern: '**/android/someApp/app/build/intermediates/classes/release',
-            exclusionPattern: '**/R.class,**/R$*.class,**/BuildConfig.class,**/com/example/someapp/MainActivity.class',
-            execPattern: '**/android/someApp/app/build/jacoco/testReleaseUnitTest.exec',
-            sourcePattern: '**/android/someApp/**/src/main/java'
-          ])
+        script {
+          def branch = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
+          if (branch != 'master') {
+            echo 'Archiving Jacoco Report...'
+            sh "gradle -p $WORKSPACE/android/someApp jacocoTestReport"
+            archiveArtifacts '**/android/someApp/app/build/**/jacocoTestReport/html/**/*'
+          } else {
+            echo 'Publishing Jacoco Report...'
+            jacoco([
+              classPattern: '**/android/someApp/app/build/intermediates/classes/release',
+              exclusionPattern: '**/R.class,**/R$*.class,**/BuildConfig.class,**/com/example/someapp/MainActivity.class',
+              execPattern: '**/android/someApp/app/build/jacoco/testReleaseUnitTest.exec',
+              sourcePattern: '**/android/someApp/**/src/main/java'
+            ])
+          }
         }
       }
     }
