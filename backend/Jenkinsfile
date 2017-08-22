@@ -62,6 +62,7 @@ pipeline {
     // loading a declarative pipeline, which causes the when-directive to always evaluate to
     // true (https://issues.jenkins-ci.org/browse/JENKINS-42224).
     // Note: This declarative pipeline works as expected when triggered by its master pipeline job.
+
     stage('Coverage Report') {
       steps {
         script {
