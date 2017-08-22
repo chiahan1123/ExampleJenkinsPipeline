@@ -23,10 +23,22 @@ node {
   // Dispatcher stage determines the build procedures based on the branch and
   // the git diff.
   stage('Dispatcher') {
+    // If this is a merge commit, then its parent's parent commit hash is the actual
+    // commit of this build, which is the second string seperated by a space.
+    def mergedCommitHash = sh(
+      returnStdout: true,
+      script: "git show --name-only --pretty=format:%P $commitHash | sed -n '1p' | awk '{print \$2}'"
+    ).trim()
+    if (mergedCommitHash) {
+      echo "HAVE MERGED COMMIT HASH: ${mergedCommitHash}"
+      commitHash = mergedCommitHash
+    } else {
+      echo "NO MERGED COMMIT HASH, USE ORIGINAL: ${commitHash}"
+    }
     subProjectConfigs.each { key, value ->
       def grepResult = sh(
         returnStdout: true,
-        script: "git show --name-only $commitHash | grep $key | wc -m"
+        script: "git show --name-only --pretty=format:%P $commitHash | grep $key | wc -m"
       ).trim()
       if (grepResult != '0') {
         if (env.BRANCH_NAME == 'master'
