@@ -25,38 +25,59 @@ node {
     commitHash = scmVars.GIT_COMMIT
   }
 
-  // Dispatcher stage determines the build procedures based on the branch and
-  // the git diff.
-  stage('Dispatcher') {
-    def mergedCommitHash = sh(
-      returnStdout: true,
-      script: "git show --name-only --pretty=format:%P $commitHash | sed -n '1p' | awk '{print \$2}'"
-    ).trim()
-    if (mergedCommitHash) {
-      commitHash = mergedCommitHash
+  // If its development or production branch, then perform deployment; otherwise, for master
+  // branch or pull requests, determine the build procedures based on the diff.
+  if (env.BRANCH_NAME == 'development' || env.BRANCH_NAME == 'production') {
+    stage('Prepare Backend for Deployment') {
+      docker.image('chiahan1123/docker-jenkins-golang').inside {
+        withEnv(["GOPATH=$WORKSPACE/backend"]) {
+          sh 'go test -v $(go list ./backend/... | grep -v vendor)'
+        }
+      }
     }
-    subProjectConfigs.each { key, value ->
-      def grepResult = sh(
+    if (env.BRANCH_NAME == 'development') {
+      stage('Deploy Backend to Development') {
+        echo 'Deploying backend to development environment...'
+        // Other development deployment procedures.
+      }
+    } else if (env.BRANCH_NAME == 'production') {
+      stage('Deploy Backend to Production') {
+        echo 'Deploying backend to production environment...'
+        // Other production deployment procedures.
+      }
+    }
+  } else {
+    stage('Dispatcher') {
+      // If this is a merge commit, then its parent's parent commit hash is the actual
+      // commit of this build, which is the second string seperated by a space.
+      def mergedCommitHash = sh(
         returnStdout: true,
-        script: "git show --name-only --pretty=format:%P $commitHash | grep $key | wc -m"
+        script: "git show --name-only --pretty=format:%P $commitHash | sed -n '1p' | awk '{print \$2}'"
       ).trim()
-      if (grepResult != '0') {
-        if (env.BRANCH_NAME == 'master'
-          || env.BRANCH_NAME == 'development'
-          || env.BRANCH_NAME == 'production') {
-          // TODO: Dispatch to jobs accordingly
-          echo "Dispatching to $value"
-          masterBuilders[key] = {
-            build([
-              job: value,
-              parameters: [string(name: 'GIT_COMMIT', value: commitHash)]
-            ])
-          }
-        } else {
-          def jenkinsfile = readFile "./${key}Jenkinsfile"
-          // Add Jenkinsfile to pipeline builders
-          pipelineBuilders[key] = {
-            evaluate jenkinsfile
+      if (mergedCommitHash) {
+        commitHash = mergedCommitHash
+      }
+      subProjectConfigs.each { key, value ->
+        def grepResult = sh(
+          returnStdout: true,
+          script: "git show --name-only --pretty=format:%P $commitHash | grep $key | wc -m"
+        ).trim()
+        if (grepResult != '0') {
+          if (env.BRANCH_NAME == 'master') {
+            // TODO: Dispatch to jobs accordingly
+            echo "Dispatching to $value"
+            masterBuilders[key] = {
+              build([
+                job: value,
+                parameters: [string(name: 'GIT_COMMIT', value: commitHash)]
+              ])
+            }
+          } else {
+            def jenkinsfile = readFile "./${key}Jenkinsfile"
+            // Add Jenkinsfile to pipeline builders
+            pipelineBuilders[key] = {
+              evaluate jenkinsfile
+            }
           }
         }
       }
