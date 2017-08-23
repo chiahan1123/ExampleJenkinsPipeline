@@ -13,18 +13,21 @@ def masterBuilders = [:]
 def pipelineBuilders = [:]
 
 node {
-  // Clean workspace before repository checkout
+  // Clean workspace before repository checkout.
   cleanWs()
 
-  // Checkout repository and obtain git commit hash
-  def scmVars = checkout scm
-  def commitHash = scmVars.GIT_COMMIT
+  def scmVars
+  def commitHash
+
+  // Checkout repository and obtain git commit hash.
+  stage('Checkout SCM') {
+    scmVars = checkout scm
+    commitHash = scmVars.GIT_COMMIT
+  }
 
   // Dispatcher stage determines the build procedures based on the branch and
   // the git diff.
   stage('Dispatcher') {
-    // If this is a merge commit, then its parent's parent commit hash is the actual
-    // commit of this build, which is the second string seperated by a space.
     def mergedCommitHash = sh(
       returnStdout: true,
       script: "git show --name-only --pretty=format:%P $commitHash | sed -n '1p' | awk '{print \$2}'"
@@ -44,7 +47,10 @@ node {
           // TODO: Dispatch to jobs accordingly
           echo "Dispatching to $value"
           masterBuilders[key] = {
-            build value
+            build([
+              job: value,
+              parameters: [string(name: 'GIT_COMMIT', value: commitHash)]
+            ])
           }
         } else {
           def jenkinsfile = readFile "./${key}Jenkinsfile"
@@ -57,7 +63,7 @@ node {
     }
   }
 
-  // Clean workspace at the end to make sure a fresh repository checkout
+  // Clean workspace at the end to make sure a fresh repository checkout.
   cleanWs()
 }
 
