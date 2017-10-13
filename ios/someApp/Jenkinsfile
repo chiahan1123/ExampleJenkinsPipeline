@@ -6,7 +6,7 @@ pipeline {
   stages {
     stage('Build iOS') {
       steps {
-        sh "xcodebuild -workspace ./ios/someApp/someApp.xcworkspace -scheme JenkinsCI -destination 'platform=iOS Simulator,name=iPhone 7,OS=10.3' build test"
+        sh "xcodebuild -workspace ./ios/someApp/someApp.xcworkspace -scheme JenkinsCI -destination 'platform=iOS Simulator,name=iPhone 7,OS=11.0' build test"
       }
     }
   }
